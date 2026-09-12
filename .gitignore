@@ -1,0 +1,39 @@
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv/
+
+# Dataset & Raw Data Files
+Dataset/
+Dataset/*
+*.csv
+*.zip
+*.tar.gz
+
+# Internal Documentation & Notes
+ML/eda_explanation.md
+ML/next_steps_after_eda.md
+
+# Jupyter Notebook Checkpoints & Cache
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Python Bytecode & Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# IDE & Editor Settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS Generated Files
+.DS_Store
+Thumbs.db
+
+# Logs & Temp files
+*.log

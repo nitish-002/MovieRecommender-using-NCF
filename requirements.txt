@@ -1,0 +1,15 @@
+# Dependencies for Movie Recommender EDA Notebook (ML/eda.ipynb)
+
+# Data Analysis & Manipulation
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Jupyter Notebook Environment
+jupyterlab>=4.0.0
+notebook>=7.0.0
+ipykernel>=6.20.0
+ipython>=8.10.0
