@@ -1,39 +1,68 @@
-# Virtual Environment
+# Python virtual environments
 venv/
 env/
 ENV/
 .venv/
+.conda/
 
-# Dataset & Raw Data Files
-Dataset/
-Dataset/*
-*.csv
-*.zip
-*.tar.gz
+# Local secrets and environment overrides
+.env
+.env.*
+!.env.example
 
-# Internal Documentation & Notes
+# MovieLens dataset and local data exports
+/Dataset/
+/data/raw/
+/data/processed/
+
+# Generated model weights, checkpoints, and ML artifacts
+/backend/model_artifacts/
+**/checkpoints/
+*.pth
+*.pt
+*.ckpt
+*.onnx
+
+# Local application dependencies and build output
+node_modules/
+**/node_modules/
+Frontend/dist/
+Frontend/build/
+Frontend/.vite/
+coverage/
+.nyc_output/
+
+# Internal documentation and notes intentionally kept local
 ML/eda_explanation.md
 ML/next_steps_after_eda.md
 
-# Jupyter Notebook Checkpoints & Cache
+# Jupyter checkpoints
 .ipynb_checkpoints/
-*.ipynb_checkpoints
+**/.ipynb_checkpoints/
 
-# Python Bytecode & Cache
+# Python bytecode, test, and tooling caches
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
 
-# IDE & Editor Settings
-.vscode/
-.idea/
+# Logs and temporary files
+*.log
+*.tmp
 *.swp
 *.swo
 
-# OS Generated Files
+# IDE and editor settings
+.vscode/
+.idea/
+
+# Operating system and local shell caches
 .DS_Store
 Thumbs.db
-
-# Logs & Temp files
-*.log
+/Microsoft/
