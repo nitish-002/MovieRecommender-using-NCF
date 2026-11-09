@@ -1,6 +1,7 @@
+import secrets
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
-from sqlalchemy import Column, Integer, String, Text, DateTime, func
+from sqlalchemy import Column, Integer, String, DateTime, func, select
 
 from app.config import settings
 
@@ -14,27 +15,10 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, unique=True, index=True)
+    email = Column(String(255), unique=True, index=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    movie_lens_user_id = Column(Integer, unique=True, index=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-
-class Movie(Base):
-    __tablename__ = "movies"
-
-    id = Column(Integer, primary_key=True, index=True)
-    movie_id = Column(Integer, unique=True, index=True)
-    title = Column(String(500), index=True)
-    genres = Column(Text)
-
-
-class UserInteraction(Base):
-    __tablename__ = "user_interactions"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, index=True)
-    movie_id = Column(Integer, index=True)
-    rating = Column(Integer)
-    timestamp = Column(Integer)
 
 
 async def init_db():
@@ -48,3 +32,16 @@ async def get_db() -> AsyncSession:
             yield session
         finally:
             await session.close()
+
+
+async def get_available_movie_lens_ids(db: AsyncSession, min_id: int, max_id: int) -> list[int]:
+    result = await db.execute(select(User.movie_lens_user_id))
+    assigned = set(result.scalars().all())
+    return [i for i in range(min_id, max_id + 1) if i not in assigned]
+
+
+async def assign_movie_lens_user_id(db: AsyncSession, min_id: int, max_id: int) -> int:
+    available = await get_available_movie_lens_ids(db, min_id, max_id)
+    if not available:
+        raise RuntimeError("No available MovieLens user IDs to assign")
+    return secrets.choice(available)

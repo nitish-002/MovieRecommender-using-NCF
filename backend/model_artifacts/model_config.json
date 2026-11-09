@@ -1,0 +1,12 @@
+{
+  "model_name": "NeuMF",
+  "embedding_dimension": 32,
+  "num_users": 162148,
+  "num_movies": 47396,
+  "positive_threshold": 3.5,
+  "minimum_user_interactions": 5,
+  "negative_samples_per_positive": 4,
+  "evaluation_negatives": 99,
+  "batch_size": 512,
+  "device": "cpu"
+}

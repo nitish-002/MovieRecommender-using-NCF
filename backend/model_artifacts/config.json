@@ -1,0 +1,53 @@
+{
+  "preprocessing": {
+    "dataset": "MovieLens 25M",
+    "dataset_directory": "C:\\Users\\ACER\\OneDrive\\Desktop\\movie Remommender using NCF\\Dataset\\ml-25m",
+    "positive_rule": "rating >= 3.5",
+    "minimum_total_ratings": 5,
+    "minimum_positive_interactions": 3,
+    "split": "per-user chronological; latest=test, second-latest=validation, earlier=train",
+    "training_negative_sampling": {
+      "ratio": "1:4",
+      "refresh": "new negatives and shuffled positives each epoch",
+      "excluded_history": "training positives only"
+    },
+    "evaluation": {
+      "protocol": "one held-out positive plus sampled negatives",
+      "negative_candidates": 99,
+      "validation_seed": 142,
+      "test_seed": 242
+    },
+    "counts": {
+      "ratings": 25000095,
+      "users": 162148,
+      "movies": 47396,
+      "positives": 15629703,
+      "train_positives": 15305407,
+      "validation_users": 162148,
+      "test_users": 162148
+    }
+  },
+  "training": {
+    "model_version": "1.0.0",
+    "gmf_embedding_dimension": 32,
+    "mlp_embedding_dimension": 32,
+    "mlp_hidden_dimensions": [
+      64,
+      32,
+      16,
+      8
+    ],
+    "dropout": 0.2,
+    "loss": "BCEWithLogitsLoss",
+    "optimizer": "AdamW",
+    "learning_rate": 0.001,
+    "weight_decay": 1e-05,
+    "batch_size": 512,
+    "negative_samples_per_positive": 4,
+    "evaluation_negatives": 99,
+    "maximum_epochs": 20,
+    "early_stopping_metric": "validation_NDCG@10",
+    "early_stopping_patience": 3,
+    "device": "cuda"
+  }
+}

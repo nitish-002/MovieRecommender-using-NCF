@@ -27,7 +27,6 @@ class RecommendationResponse(BaseModel):
 
 
 class PredictionRequest(BaseModel):
-    user_id: int
     movie_id: int
 
 

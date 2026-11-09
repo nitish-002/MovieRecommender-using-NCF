@@ -1,5 +1,5 @@
-from fastapi import APIRouter, HTTPException, Query
-from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
+from typing import List
 
 from app.schemas import (
     HealthResponse,
@@ -12,7 +12,8 @@ from app.schemas import (
 )
 from app.services.model_service import ModelService
 from app.services.movie_service import MovieService
-
+from app.services.db import User
+from app.api.auth_routes import get_current_user
 
 router = APIRouter()
 
@@ -26,20 +27,22 @@ async def health_check():
     )
 
 
-@router.get("/recommend/{user_id}", response_model=RecommendationResponse)
+@router.get("/recommend", response_model=RecommendationResponse)
 async def get_recommendations(
-    user_id: int,
     top_n: int = Query(default=10, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
 ):
+    user_id = current_user.movie_lens_user_id
+
     if not ModelService.validate_user(user_id):
-        raise HTTPException(status_code=404, detail=f"User {user_id} not found or ineligible")
-    
+        raise HTTPException(status_code=404, detail=f"Linked MovieLens user {user_id} not found")
+
     if not ModelService.is_model_loaded():
         raise HTTPException(
             status_code=503,
             detail="Model not loaded. Please train the model first."
         )
-    
+
     try:
         recommendations = ModelService.recommend_top_n(user_id, top_n)
         return RecommendationResponse(
@@ -67,21 +70,27 @@ async def search_movies(
 
 
 @router.post("/predict", response_model=PredictionResponse)
-async def predict_preference(request: PredictionRequest):
-    if not ModelService.validate_user(request.user_id):
-        raise HTTPException(status_code=404, detail=f"User {request.user_id} not found or ineligible")
-    
-    if not ModelService.validate_movie(request.movie_id):
-        raise HTTPException(status_code=404, detail=f"Movie {request.movie_id} not found")
-    
+async def predict_preference(
+    request: PredictionRequest,
+    current_user: User = Depends(get_current_user),
+):
+    movie_id = request.movie_id
+    user_id = current_user.movie_lens_user_id
+
+    if not ModelService.validate_user(user_id):
+        raise HTTPException(status_code=404, detail=f"Linked MovieLens user {user_id} not found")
+
+    if not ModelService.validate_movie(movie_id):
+        raise HTTPException(status_code=404, detail=f"Movie {movie_id} not found")
+
     if not ModelService.is_model_loaded():
         raise HTTPException(
             status_code=503,
             detail="Model not loaded. Please train the model first."
         )
-    
+
     try:
-        prediction = ModelService.predict_preference(request.user_id, request.movie_id)
+        prediction = ModelService.predict_preference(user_id, movie_id)
         return PredictionResponse(**prediction)
     except KeyError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -95,17 +104,16 @@ async def predict_preference(request: PredictionRequest):
 async def get_metrics():
     metrics = ModelService.get_metrics()
     config = ModelService.get_config()
-    
+
     dataset_stats = config.get("counts", {})
     evaluation_config = config.get("evaluation", {})
-    training_config = config.get("training", {})
-    
+
     model_comparison = {}
     if "popularity_baseline" in metrics:
         model_comparison["popularity_baseline"] = metrics["popularity_baseline"]
     if "models" in metrics:
         model_comparison["neumf"] = metrics["models"]
-    
+
     return MetricsResponse(
         dataset_stats=dataset_stats,
         evaluation_config=evaluation_config,
