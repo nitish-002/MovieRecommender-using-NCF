@@ -85,9 +85,9 @@ async def register(request: RegisterRequest, db: AsyncSession = Depends(get_db))
                 detail="MovieLens user mappings are unavailable. Check the model artifacts.",
             )
 
-        min_id = min(ModelService._user2idx)
-        max_id = max(ModelService._user2idx)
-        movie_lens_user_id = await assign_movie_lens_user_id(db, min_id, max_id)
+        movie_lens_user_id = await assign_movie_lens_user_id(
+            db, valid_ids=list(ModelService._user2idx.keys())
+        )
 
         user = User(
             email=request.email,
