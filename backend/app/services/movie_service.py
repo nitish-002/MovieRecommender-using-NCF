@@ -9,6 +9,8 @@ class MovieService:
 
     @classmethod
     def initialize(cls):
+        if cls._movies_df is not None and not cls._movies_df.empty:
+            return
         cls._movies_df = ModelService.get_movie_metadata()
 
     @classmethod

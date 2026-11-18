@@ -7,6 +7,10 @@ export function MovieGrid({
   movies, 
   onMovieClick, 
   onPredict, 
+  onLike,
+  onMarkSeen,
+  likedMovieIds = [],
+  seenMovieIds = [],
   showRank = false,
   loading = false,
   emptyMessage = 'No movies found',
@@ -48,16 +52,23 @@ export function MovieGrid({
 
   return (
     <div className={gridClasses} role="list" aria-label="Movie grid">
-      {movies.map((movie, index) => (
-        <MovieCard
-          key={`${movie.movie_id || movie.id}-${index}`}
-          movie={movie}
-          rank={showRank ? index + 1 : undefined}
-          score={movie.preference_score ?? movie.score}
-          onClick={onMovieClick}
-          onPredict={onPredict}
-        />
-      ))}
+      {movies.map((movie, index) => {
+        const mId = movie.movie_id || movie.id
+        return (
+          <MovieCard
+            key={`${mId}-${index}`}
+            movie={movie}
+            rank={showRank ? index + 1 : undefined}
+            score={movie.preference_score ?? movie.score}
+            onClick={onMovieClick}
+            onPredict={onPredict}
+            onLike={onLike}
+            onMarkSeen={onMarkSeen}
+            isLiked={likedMovieIds.includes(mId)}
+            isSeen={seenMovieIds.includes(mId)}
+          />
+        )
+      })}
     </div>
   )
 }

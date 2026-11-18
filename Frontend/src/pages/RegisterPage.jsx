@@ -49,8 +49,8 @@ export function RegisterPage() {
 
     try {
       await register(email, password)
-      setSuccess('Account created and linked to MovieLens! Redirecting...')
-      setTimeout(() => navigate('/recommendations'), 600)
+      setSuccess('Account created! Setting up your personal movie calibration...')
+      setTimeout(() => navigate('/onboarding'), 600)
     } catch (err) {
       setError(err.response?.data?.detail || 'Unable to register. Please check that the server is running.')
     } finally {

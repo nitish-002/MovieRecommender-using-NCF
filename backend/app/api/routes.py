@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas import (
     HealthResponse,
@@ -12,7 +14,7 @@ from app.schemas import (
 )
 from app.services.model_service import ModelService
 from app.services.movie_service import MovieService
-from app.services.db import User
+from app.services.db import User, UserInteraction, get_db
 from app.api.auth_routes import get_current_user
 
 router = APIRouter()
@@ -31,33 +33,62 @@ async def health_check():
 async def get_recommendations(
     top_n: int = Query(default=10, ge=1, le=100),
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    user_id = current_user.movie_lens_user_id
-
-    if not ModelService.validate_user(user_id):
-        raise HTTPException(status_code=404, detail=f"Linked MovieLens user {user_id} not found")
-
     if not ModelService.is_model_loaded():
         raise HTTPException(
             status_code=503,
             detail="Model not loaded. Please train the model first."
         )
 
-    try:
-        recommendations = ModelService.recommend_top_n(user_id, top_n)
-        return RecommendationResponse(
-            user_id=user_id,
-            model_version=ModelService.get_model_version(),
-            recommendations=[
-                RecommendationItem(**rec) for rec in recommendations
-            ],
-        )
-    except KeyError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except RuntimeError as e:
-        raise HTTPException(status_code=503, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+    # 1. Check for dynamic user interactions (liked movies)
+    result = await db.execute(
+        select(UserInteraction).where(UserInteraction.user_id == current_user.id)
+    )
+    interactions = result.scalars().all()
+    liked_ids = [i.movie_id for i in interactions if i.interaction_type == "liked"]
+    excluded_ids = {i.movie_id for i in interactions if i.interaction_type in ("liked", "seen", "disliked")}
+
+    if liked_ids:
+        try:
+            recommendations = ModelService.recommend_from_liked_movies(
+                liked_movie_ids=liked_ids,
+                excluded_movie_ids=excluded_ids,
+                top_n=top_n,
+            )
+            return RecommendationResponse(
+                user_id=current_user.id,
+                model_version=ModelService.get_model_version(),
+                recommendations=[
+                    RecommendationItem(**rec) for rec in recommendations
+                ],
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+    # 2. Fallback to pre-mapped MovieLens user ID (benchmark / cold-start mode)
+    user_id = current_user.movie_lens_user_id
+    if user_id is not None and ModelService.validate_user(user_id):
+        try:
+            recommendations = ModelService.recommend_top_n(user_id, top_n)
+            return RecommendationResponse(
+                user_id=user_id,
+                model_version=ModelService.get_model_version(),
+                recommendations=[
+                    RecommendationItem(**rec) for rec in recommendations
+                ],
+            )
+        except KeyError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        except RuntimeError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+    raise HTTPException(
+        status_code=404,
+        detail=f"User {current_user.id} has no liked movies and no valid linked benchmark ID."
+    )
 
 
 @router.get("/movies/search", response_model=List[MovieSearchResult])
@@ -73,12 +104,9 @@ async def search_movies(
 async def predict_preference(
     request: PredictionRequest,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     movie_id = request.movie_id
-    user_id = current_user.movie_lens_user_id
-
-    if not ModelService.validate_user(user_id):
-        raise HTTPException(status_code=404, detail=f"Linked MovieLens user {user_id} not found")
 
     if not ModelService.validate_movie(movie_id):
         raise HTTPException(status_code=404, detail=f"Movie {movie_id} not found")
@@ -89,15 +117,46 @@ async def predict_preference(
             detail="Model not loaded. Please train the model first."
         )
 
-    try:
-        prediction = ModelService.predict_preference(user_id, movie_id)
-        return PredictionResponse(**prediction)
-    except KeyError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except RuntimeError as e:
-        raise HTTPException(status_code=503, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+    # 1. Check for dynamic user interactions (liked movies)
+    result = await db.execute(
+        select(UserInteraction).where(
+            UserInteraction.user_id == current_user.id,
+            UserInteraction.interaction_type == "liked",
+        )
+    )
+    liked_interactions = result.scalars().all()
+    liked_ids = [i.movie_id for i in liked_interactions]
+
+    if liked_ids:
+        try:
+            pred = ModelService.predict_from_liked_movies(liked_ids, movie_id)
+            return PredictionResponse(
+                user_id=current_user.id,
+                movie_id=movie_id,
+                prediction_type="surrogate_preference_score",
+                score=pred["score"],
+                model_version=ModelService.get_model_version(),
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+    # 2. Fallback to pre-mapped MovieLens user ID
+    user_id = current_user.movie_lens_user_id
+    if user_id is not None and ModelService.validate_user(user_id):
+        try:
+            prediction = ModelService.predict_preference(user_id, movie_id)
+            return PredictionResponse(**prediction)
+        except KeyError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        except RuntimeError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+    raise HTTPException(
+        status_code=404,
+        detail=f"User {current_user.id} has no liked movies and no valid linked benchmark ID."
+    )
 
 
 @router.get("/metrics", response_model=MetricsResponse)

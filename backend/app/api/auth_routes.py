@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr, field_validator
@@ -47,7 +48,9 @@ class TokenResponse(BaseModel):
 class UserResponse(BaseModel):
     id: int
     email: str
-    movie_lens_user_id: int
+    movie_lens_user_id: Optional[int] = None
+    role: str = "user"
+    onboarding_completed: bool = False
 
 
 async def get_current_user(
@@ -128,4 +131,6 @@ async def get_me(current_user: User = Depends(get_current_user)):
         id=current_user.id,
         email=current_user.email,
         movie_lens_user_id=current_user.movie_lens_user_id,
+        role=current_user.role or "user",
+        onboarding_completed=bool(current_user.onboarding_completed),
     )

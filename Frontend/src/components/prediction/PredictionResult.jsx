@@ -11,7 +11,7 @@ export function PredictionResult({ prediction, onClose }) {
   const confidenceConfig = {
     high: { 
       label: 'Strong Match', 
-      desc: 'NeuMF model indicates a very high likelihood of positive engagement.',
+      desc: 'Very high likelihood you will enjoy this movie.',
       textColor: 'text-emerald-400', 
       bgColor: 'bg-emerald-500/10',
       strokeColor: '#34d399',
@@ -19,7 +19,7 @@ export function PredictionResult({ prediction, onClose }) {
     },
     medium: { 
       label: 'Moderate Match', 
-      desc: 'Model identifies partial taste overlap with your interaction pattern.',
+      desc: 'Moderate overlap with your taste profile.',
       textColor: 'text-amber-400', 
       bgColor: 'bg-amber-500/10',
       strokeColor: '#fbbf24',
@@ -27,7 +27,7 @@ export function PredictionResult({ prediction, onClose }) {
     },
     low: { 
       label: 'Low Match', 
-      desc: 'Unlikely to align with your historical viewing preferences.',
+      desc: 'Lower alignment with your historical viewing favorites.',
       textColor: 'text-slate-400', 
       bgColor: 'bg-slate-500/10',
       strokeColor: '#94a3b8',
@@ -44,7 +44,7 @@ export function PredictionResult({ prediction, onClose }) {
           <div className="p-1.5 rounded-lg bg-accent/15 text-accent">
             <Sparkles className="h-4 w-4" />
           </div>
-          <h3 className="font-semibold text-primary text-base">NeuMF Prediction Result</h3>
+          <h3 className="font-semibold text-primary text-base">Match Score Result</h3>
         </div>
         {onClose && (
           <button 

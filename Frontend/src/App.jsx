@@ -5,10 +5,11 @@ import { HomePage } from './pages/HomePage'
 import { DiscoverPage } from './pages/DiscoverPage'
 import { RecommendationsPage } from './pages/RecommendationsPage'
 import { PredictorPage } from './pages/PredictorPage'
-import { InsightsPage } from './pages/InsightsPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { AdminPage } from './pages/AdminPage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
+import { OnboardingPage } from './pages/OnboardingPage'
 
 function App() {
   return (
@@ -19,10 +20,12 @@ function App() {
       <Route element={<AppShell />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/discover" element={<DiscoverPage />} />
+        <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
         <Route path="/recommendations" element={<RecommendationsPage />} />
         <Route path="/predictor" element={<PredictorPage />} />
-        <Route path="/insights" element={<InsightsPage />} />
+        <Route path="/insights" element={<Navigate to="/admin" replace />} />
         <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+        <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

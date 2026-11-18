@@ -7,6 +7,7 @@ ENV/
 .venv/
 .conda/
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
 *.so
@@ -27,17 +28,22 @@ wheels/
 share/python-wheels/
 
 # ==============================================================================
-# Environment Variables & Secrets
+# Environment Variables & Secrets (CRITICAL: Never commit secrets)
 # ==============================================================================
 .env
 .env.*
 .env.local
+**/.env
+**/.env.*
+**/.env.local
+!**/.env.example
 !.env.example
 
 # ==============================================================================
 # Testing, Coverage & Linters
 # ==============================================================================
 .pytest_cache/
+**/.pytest_cache/
 .mypy_cache/
 .ruff_cache/
 .coverage
@@ -54,7 +60,7 @@ htmlcov/
 **/.ipynb_checkpoints/
 
 # ==============================================================================
-# Datasets & Large Archives
+# Datasets & Large Archives (MovieLens 25M raw CSVs)
 # ==============================================================================
 /Dataset/
 /data/raw/
@@ -66,8 +72,7 @@ htmlcov/
 # ==============================================================================
 # Model Weights & Heavy Checkpoints
 # ==============================================================================
-# Keep configurations & metadata, ignore heavy trained binary checkpoints
-*.pth
+# Ignore intermediate training checkpoints and other weight formats
 *.pt
 *.ckpt
 *.onnx
@@ -75,6 +80,11 @@ htmlcov/
 *.h5
 **/checkpoints/
 /backend/model_artifacts/checkpoints/
+
+# Ignore arbitrary .pth files...
+*.pth
+# ...EXCEPT the final trained production NeuMF model weight required by Render API
+!backend/model_artifacts/neumf_best.pth
 
 # ==============================================================================
 # Frontend Dependencies & Build Output
@@ -107,6 +117,7 @@ postgres_data/
 .DS_Store
 Thumbs.db
 desktop.ini
+Microsoft/
 /Microsoft/
 *.swp
 *.swo

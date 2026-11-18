@@ -11,7 +11,8 @@ import subprocess
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parent
-PYTHON_EXE = sys.executable
+VENV_PYTHON = ROOT_DIR / "venv" / "Scripts" / "python.exe"
+PYTHON_EXE = str(VENV_PYTHON) if VENV_PYTHON.exists() else sys.executable
 
 
 def run_command(cmd, cwd=ROOT_DIR):

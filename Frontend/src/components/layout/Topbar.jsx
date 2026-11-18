@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Menu, User, LogOut, ChevronDown, Sparkles, Settings } from 'lucide-react'
+import { Menu, User, LogOut, ChevronDown, Sparkles, Settings, ShieldCheck } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { SearchInput } from '../ui/SharedComponents'
 import { cn } from '../../utils/cn'
@@ -83,11 +83,18 @@ export function Topbar({ onMenuClick, collapsed = false }) {
                   {user?.email?.charAt(0).toUpperCase() || <User className="h-4 w-4" />}
                 </div>
                 <div className="hidden md:flex flex-col text-left">
-                  <span className="text-xs font-semibold text-primary truncate max-w-[130px]">
-                    {user?.email?.split('@')[0]}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-semibold text-primary truncate max-w-[130px]">
+                      {user?.email?.split('@')[0]}
+                    </span>
+                    {user?.role === 'admin' && (
+                      <span className="px-1 py-0.2 rounded text-[8px] font-extrabold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                        ADMIN
+                      </span>
+                    )}
+                  </div>
                   <span className="text-[10px] text-accent font-medium">
-                    MovieLens #{user?.movie_lens_user_id}
+                    {user?.onboarding_completed ? 'Taste Profile Active' : 'Personalized Profile'}
                   </span>
                 </div>
                 <ChevronDown className={cn('h-3.5 w-3.5 text-secondary transition-transform', showProfileMenu && 'rotate-180')} />
@@ -97,10 +104,17 @@ export function Topbar({ onMenuClick, collapsed = false }) {
                 <div className="absolute right-0 mt-2 w-60 bg-card rounded-2xl border border-border shadow-2xl py-2 animate-scale-in z-50">
                   <div className="px-4 py-3 border-b border-border/70">
                     <p className="text-[11px] text-secondary">Signed in as</p>
-                    <p className="text-xs font-semibold text-primary truncate mt-0.5">{user?.email}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <p className="text-xs font-semibold text-primary truncate">{user?.email}</p>
+                      {user?.role === 'admin' && (
+                        <span className="px-1.5 py-0.2 rounded text-[8px] font-extrabold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                          ADMIN
+                        </span>
+                      )}
+                    </div>
                     <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-surface text-[10px] text-accent font-medium border border-border">
                       <Sparkles className="h-3 w-3" />
-                      MovieLens User #{user?.movie_lens_user_id}
+                      {user?.onboarding_completed ? 'Dynamic Taste Active' : 'Personalized Cinema Profile'}
                     </div>
                   </div>
 
@@ -113,6 +127,21 @@ export function Topbar({ onMenuClick, collapsed = false }) {
                       <Settings className="h-4 w-4" />
                       <span>Account Settings</span>
                     </Link>
+                    {user?.role === 'admin' && (
+                      <Link
+                        to="/admin"
+                        onClick={() => setShowProfileMenu(false)}
+                        className="flex items-center justify-between px-4 py-2 text-xs text-secondary hover:text-primary hover:bg-surface transition-colors"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <ShieldCheck className="h-4 w-4 text-amber-400" />
+                          <span>Admin Console</span>
+                        </div>
+                        <span className="px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                          Active
+                        </span>
+                      </Link>
+                    )}
                   </div>
 
                   <div className="pt-1 border-t border-border/70">

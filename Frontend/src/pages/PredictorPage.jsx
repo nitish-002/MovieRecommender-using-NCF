@@ -42,10 +42,10 @@ export function PredictorPage() {
           <Brain className="h-12 w-12" />
         </div>
         <h1 className="text-3xl font-extrabold text-primary tracking-tight mb-2">
-          NeuMF Preference Predictor
+          Movie Match Predictor
         </h1>
         <p className="text-secondary text-sm leading-relaxed mb-6">
-          Predict your affinity probability for any specific title in the MovieLens 25M catalog using your trained latent embedding.
+          Find out how likely you are to enjoy any specific movie based on your personal taste profile.
         </p>
         <Link
           to="/login"
@@ -62,11 +62,11 @@ export function PredictorPage() {
       <div className="text-center space-y-2">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent/15 text-accent text-xs font-semibold">
           <Sparkles className="h-3.5 w-3.5" />
-          Neural Collaborative Filtering
+          Personalized Scoring
         </div>
-        <h1 className="text-3xl font-extrabold text-primary tracking-tight">Preference Predictor</h1>
+        <h1 className="text-3xl font-extrabold text-primary tracking-tight">Movie Match Predictor</h1>
         <p className="text-secondary text-sm max-w-md mx-auto">
-          Select any movie from the catalog to compute your personalized affinity score with the NeuMF model.
+          Search for any movie to calculate your personalized match score.
         </p>
       </div>
 
@@ -79,11 +79,11 @@ export function PredictorPage() {
             </div>
             <div>
               <p className="font-semibold text-xs text-primary">{user?.email}</p>
-              <p className="text-[11px] text-accent font-medium">Linked MovieLens User #{user?.movie_lens_user_id}</p>
+              <p className="text-[11px] text-accent font-medium">Personalized Taste Profile</p>
             </div>
           </div>
-          <span className="text-[10px] text-secondary px-2 py-0.5 rounded bg-card border border-border">
-            Embed Dim: 32
+          <span className="text-[10px] text-secondary px-2.5 py-0.5 rounded-full bg-accent/10 border border-accent/20 text-accent font-medium">
+            Active
           </span>
         </div>
 

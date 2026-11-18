@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Sparkles, Star, Film, Bookmark } from 'lucide-react'
+import { Sparkles, Star, Film, Bookmark, Heart, Eye } from 'lucide-react'
 import { cn } from '../../utils/cn'
 import { LoadingSkeleton } from '../ui/SharedComponents'
 
@@ -9,6 +9,10 @@ export function MovieCard({
   score, 
   onClick, 
   onPredict, 
+  onLike,
+  onMarkSeen,
+  isLiked = false,
+  isSeen = false,
   variant = 'default',
   className = ''
 }) {
@@ -104,18 +108,19 @@ export function MovieCard({
           'opacity-0 group-hover:opacity-100 transition-opacity duration-200',
           'flex flex-col justify-end p-3.5 z-10'
         )}>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {onPredict && (
               <button
                 type="button"
                 onClick={handlePredict}
                 disabled={predicting}
                 className={cn(
-                  'flex-1 py-2 px-3 rounded-xl text-xs font-semibold',
+                  'flex-1 py-2 px-2.5 rounded-xl text-xs font-semibold',
                   'transition-all duration-200 focus-visible-ring cursor-pointer',
                   'bg-accent text-white hover:bg-accent-hover shadow-md shadow-accent/30',
-                  'disabled:opacity-50 flex items-center justify-center gap-1.5'
+                  'disabled:opacity-50 flex items-center justify-center gap-1'
                 )}
+                title="Predict your neural affinity for this movie"
               >
                 {predicting ? (
                   <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24">
@@ -130,6 +135,47 @@ export function MovieCard({
                 )}
               </button>
             )}
+
+            {onLike && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onLike(movie)
+                }}
+                className={cn(
+                  'p-2 rounded-xl backdrop-blur-md transition-all cursor-pointer',
+                  isLiked
+                    ? 'bg-red-500/25 text-red-500 border border-red-500/50 shadow-md shadow-red-500/20'
+                    : 'bg-surface/80 text-secondary hover:text-red-400 hover:bg-white/15'
+                )}
+                aria-label={isLiked ? 'Unlike movie' : 'Like and add to my taste'}
+                title={isLiked ? 'Liked (in taste profile)' : 'Like & add to taste profile'}
+              >
+                <Heart className={cn('h-4 w-4', isLiked && 'fill-current')} />
+              </button>
+            )}
+
+            {onMarkSeen && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onMarkSeen(movie)
+                }}
+                className={cn(
+                  'p-2 rounded-xl backdrop-blur-md transition-all cursor-pointer',
+                  isSeen
+                    ? 'bg-cyan-500/25 text-cyan-400 border border-cyan-500/50 shadow-md shadow-cyan-500/20'
+                    : 'bg-surface/80 text-secondary hover:text-cyan-400 hover:bg-white/15'
+                )}
+                aria-label={isSeen ? 'Marked as seen' : 'Mark as already seen'}
+                title={isSeen ? 'Already seen (excluded from recs)' : 'Mark as already seen'}
+              >
+                <Eye className={cn('h-4 w-4', isSeen && 'stroke-[2.5]')} />
+              </button>
+            )}
+
             <button
               type="button"
               onClick={handleToggleSave}
@@ -140,6 +186,7 @@ export function MovieCard({
                   : 'bg-surface/80 text-secondary hover:text-primary hover:bg-white/15'
               )}
               aria-label={isSaved ? 'Remove from saved' : 'Save movie'}
+              title={isSaved ? 'Saved in watchlist' : 'Save to watchlist'}
             >
               <Bookmark className={cn('h-4 w-4', isSaved && 'fill-current')} />
             </button>

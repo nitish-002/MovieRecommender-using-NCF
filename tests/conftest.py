@@ -9,4 +9,7 @@ if str(backend_dir) not in sys.path:
 
 # Ensure settings finds the model artifacts from root
 os.environ["MODEL_ARTIFACTS_DIR"] = str(backend_dir / "model_artifacts")
+# Use fast in-memory database for isolated, lightning-fast testing
+os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
+os.environ["TESTING"] = "1"
 

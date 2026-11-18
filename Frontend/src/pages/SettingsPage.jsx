@@ -1,10 +1,12 @@
-import { useState } from 'react'
-import { User, Lock, Key, Film, Brain, LogOut, AlertCircle, Info, Check, Shield } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { Link } from 'react-router-dom'
+import { User, Lock, Key, Film, Brain, LogOut, AlertCircle, Info, Check, Shield, Heart, Wrench, RotateCcw, Trash2, ArrowRight } from 'lucide-react'
 import { cn } from '../utils/cn'
 import { useAuth } from '../context/AuthContext'
+import { movieApi } from '../services/movieApi'
 
 export function SettingsPage() {
-  const { user, logout, isAuthenticated } = useAuth()
+  const { user, logout, isAuthenticated, refetch } = useAuth()
   const [activeTab, setActiveTab] = useState('profile')
   const [message, setMessage] = useState(null)
 
@@ -13,12 +15,60 @@ export function SettingsPage() {
   const [showScores, setShowScores] = useState(true)
   const [compactCards, setCompactCards] = useState(false)
 
+  // Dynamic taste profile state
+  const [interactions, setInteractions] = useState([])
+  const [interactionsLoading, setInteractionsLoading] = useState(false)
+
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
+    { id: 'taste', label: 'Taste Profile', icon: Heart },
     { id: 'preferences', label: 'Preferences', icon: Brain },
     { id: 'security', label: 'Security', icon: Lock },
-    { id: 'about', label: 'About & Model', icon: Info },
   ]
+
+  const fetchInteractions = useCallback(async () => {
+    if (!isAuthenticated) return
+    setInteractionsLoading(true)
+    try {
+      const data = await movieApi.getUserInteractions()
+      setInteractions(data?.interactions || [])
+    } catch (err) {
+      console.error('Failed to load interactions:', err)
+    } finally {
+      setInteractionsLoading(false)
+    }
+  }, [isAuthenticated])
+
+  useEffect(() => {
+    if (activeTab === 'taste') {
+      fetchInteractions()
+    }
+  }, [activeTab, fetchInteractions])
+
+  const handleRemoveInteraction = async (movieId) => {
+    try {
+      await movieApi.removeInteraction(movieId)
+      setMessage({ type: 'success', text: 'Movie removed from taste profile' })
+      await fetchInteractions()
+      await refetch?.()
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to remove movie' })
+    }
+    setTimeout(() => setMessage(null), 3000)
+  }
+
+  const handleResetTaste = async () => {
+    if (!window.confirm('Reset your taste profile? This will clear all liked movies and reset onboarding.')) return
+    try {
+      await movieApi.resetUserInteractions()
+      setMessage({ type: 'success', text: 'Taste profile reset successfully!' })
+      await fetchInteractions()
+      await refetch?.()
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to reset taste profile' })
+    }
+    setTimeout(() => setMessage(null), 3000)
+  }
 
   if (!isAuthenticated) {
     return (
@@ -47,7 +97,7 @@ export function SettingsPage() {
     <div className="max-w-3xl mx-auto space-y-8 animate-fade-in">
       <div>
         <h1 className="text-3xl font-extrabold text-primary tracking-tight">Settings</h1>
-        <p className="text-secondary text-sm mt-1">Manage your MovieLens linkage and platform preferences</p>
+        <p className="text-secondary text-sm mt-1">Manage your taste profile and platform preferences</p>
       </div>
 
       <div className="bg-card rounded-2xl border border-border overflow-hidden shadow-xl">
@@ -103,10 +153,10 @@ export function SettingsPage() {
                 <div>
                   <h3 className="font-bold text-base text-primary">{user?.email}</h3>
                   <p className="text-xs text-accent font-medium mt-0.5">
-                    MovieLens 25M User ID #{user?.movie_lens_user_id}
+                    {user?.onboarding_completed ? 'Dynamic Taste Profile Active' : 'Personalized Profile'}
                   </p>
                   <p className="text-[11px] text-secondary mt-1">
-                    Bound to 32-dimensional user latent embedding
+                    Personalized movie recommendations enabled
                   </p>
                 </div>
               </div>
@@ -122,21 +172,113 @@ export function SettingsPage() {
                     disabled
                     className="w-full px-4 py-2.5 bg-surface border border-border rounded-xl text-xs text-secondary cursor-not-allowed"
                   />
-                  <p className="text-[11px] text-secondary/60 mt-1">Account identifier for session authentication</p>
+                  <p className="text-[11px] text-secondary/60 mt-1">Your registered login email address</p>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-secondary uppercase tracking-wider mb-1.5">
-                    MovieLens Profile ID
+                    Taste Profile Status
                   </label>
                   <input
                     type="text"
-                    value={`User #${user?.movie_lens_user_id || ''}`}
+                    value={user?.onboarding_completed ? 'Calibrated (Likes Recorded)' : 'Calibration Pending'}
                     disabled
                     className="w-full px-4 py-2.5 bg-surface border border-border rounded-xl text-xs text-secondary cursor-not-allowed"
                   />
-                  <p className="text-[11px] text-secondary/60 mt-1">Bound from MovieLens 25M training corpus</p>
+                  <p className="text-[11px] text-secondary/60 mt-1">Based on your liked and watched titles</p>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Taste Profile Tab */}
+          {activeTab === 'taste' && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-surface/60 rounded-xl border border-border">
+                <div>
+                  <h3 className="font-bold text-base text-primary">Your Dynamic Taste Profile</h3>
+                  <p className="text-xs text-secondary mt-0.5">
+                    {interactions.length > 0 
+                      ? `${interactions.length} recorded movies shaping your NeuMF surrogate embedding`
+                      : 'No movies selected yet. Calibrate in onboarding to generate dynamic recommendations.'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <a
+                    href="/onboarding"
+                    className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-accent text-white hover:bg-accent-hover transition-colors flex items-center gap-1 shadow-sm"
+                  >
+                    <span>Calibrate Taste</span>
+                    <ArrowRight className="h-3 w-3" />
+                  </a>
+                  {interactions.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleResetTaste}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold text-red-400 hover:bg-red-500/10 border border-red-500/20 transition-colors flex items-center gap-1 cursor-pointer"
+                      title="Clear all movie interactions"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      <span>Reset</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {interactionsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-accent" />
+                </div>
+              ) : interactions.length === 0 ? (
+                <div className="text-center py-12 px-4 bg-surface/30 rounded-2xl border border-border/60">
+                  <Heart className="h-8 w-8 text-secondary/50 mx-auto mb-2" />
+                  <p className="text-sm font-semibold text-primary">No Taste Interactions Yet</p>
+                  <p className="text-xs text-secondary mt-1 max-w-sm mx-auto">
+                    Complete onboarding or click ❤️ on any movie card to begin building your personalized surrogate vector.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+                  {interactions.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between p-3 bg-surface/50 rounded-xl border border-border/80 hover:border-accent/30 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={cn(
+                            'px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider',
+                            item.interaction_type === 'liked'
+                              ? 'bg-red-500/15 text-red-400 border border-red-500/30'
+                              : 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30'
+                          )}
+                        >
+                          {item.interaction_type}
+                        </span>
+                        <div>
+                          <p className="text-xs font-semibold text-primary line-clamp-1">
+                            {item.title || `Movie ID #${item.movie_id}`}
+                          </p>
+                          {item.genres && (
+                            <p className="text-[10px] text-secondary">
+                              {item.genres.slice(0, 3).join(', ')}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveInteraction(item.movie_id)}
+                        className="p-1.5 rounded-lg text-secondary hover:text-red-400 hover:bg-surface transition-colors cursor-pointer"
+                        title="Remove interaction"
+                        aria-label="Remove interaction"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -163,8 +305,8 @@ export function SettingsPage() {
 
                 <div className="bg-surface/50 rounded-xl p-4 border border-border flex items-center justify-between gap-4">
                   <div>
-                    <h4 className="font-semibold text-sm text-primary">Display Neural Affinity Scores</h4>
-                    <p className="text-xs text-secondary mt-0.5">Show predicted interaction confidence percentages</p>
+                    <h4 className="font-semibold text-sm text-primary">Display Match Confidence Scores</h4>
+                    <p className="text-xs text-secondary mt-0.5">Show predicted recommendation match percentages</p>
                   </div>
                   <input
                     type="checkbox"
@@ -237,41 +379,11 @@ export function SettingsPage() {
               </div>
             </div>
           )}
-
-          {/* About Tab */}
-          {activeTab === 'about' && (
-            <div className="space-y-5">
-              <div className="p-4 rounded-xl bg-surface/60 border border-border space-y-2">
-                <h4 className="font-bold text-sm text-primary flex items-center gap-2">
-                  <Film className="h-4 w-4 text-accent" />
-                  CineMatch • Neural Collaborative Filtering
-                </h4>
-                <p className="text-xs text-secondary leading-relaxed">
-                  End-to-end movie recommendation engine powered by PyTorch NeuMF, serving 25M MovieLens ratings through FastAPI and React 19.
-                </p>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-3 text-xs">
-                <div className="p-3 bg-surface/50 rounded-xl border border-border">
-                  <span className="text-secondary block mb-1">Architecture</span>
-                  <strong className="text-primary font-semibold">NeuMF (GMF + MLP)</strong>
-                </div>
-                <div className="p-3 bg-surface/50 rounded-xl border border-border">
-                  <span className="text-secondary block mb-1">Dataset</span>
-                  <strong className="text-primary font-semibold">MovieLens 25M</strong>
-                </div>
-                <div className="p-3 bg-surface/50 rounded-xl border border-border">
-                  <span className="text-secondary block mb-1">Backend Stack</span>
-                  <strong className="text-primary font-semibold">FastAPI + PyTorch</strong>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Footer Actions */}
         <div className="px-6 py-4 bg-surface/40 border-t border-border flex items-center justify-between">
-          <span className="text-xs text-secondary">CineMatch Engine v1.0.0</span>
+          <span className="text-xs text-secondary">CineMatch</span>
           <button
             type="button"
             onClick={logout}

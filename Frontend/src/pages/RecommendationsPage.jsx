@@ -1,12 +1,13 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { Film, Sparkles, RefreshCw } from 'lucide-react'
+import { Film, Sparkles, RefreshCw, Heart, ArrowRight } from 'lucide-react'
 import { cn } from '../utils/cn'
 import { MovieGrid } from '../components/movie/MovieGrid'
 import { MovieDetailsModal } from '../components/movie/MovieDetailsModal'
 import { RecommendationFilters } from '../components/recommendation/RecommendationFilters'
 import { useRecommendations, useMetrics } from '../hooks/useMovies'
 import { useAuth } from '../context/AuthContext'
+import { movieApi } from '../services/movieApi'
 
 const ALL_GENRES = [
   'Action', 'Adventure', 'Animation', 'Children', 'Comedy', 'Crime',
@@ -19,9 +20,72 @@ export function RecommendationsPage() {
   const [topN, setTopN] = useState(10)
   const [selectedGenres, setSelectedGenres] = useState([])
   const [selectedMovie, setSelectedMovie] = useState(null)
+  const [interactions, setInteractions] = useState({ liked_movie_ids: [], seen_movie_ids: [] })
+  const [, setActionLoading] = useState(false)
 
   const { recommendations, loading, error, refetch } = useRecommendations(topN)
   const { metrics } = useMetrics()
+
+  const fetchInteractions = useCallback(async () => {
+    if (!isAuthenticated) return
+    try {
+      const data = await movieApi.getUserInteractions()
+      if (data) {
+        setInteractions({
+          liked_movie_ids: data.liked_movie_ids || [],
+          seen_movie_ids: data.seen_movie_ids || [],
+        })
+      }
+    } catch (e) {
+      console.error('Failed to fetch user interactions:', e)
+    }
+  }, [isAuthenticated])
+
+  useEffect(() => {
+    fetchInteractions()
+  }, [fetchInteractions])
+
+  const handleLike = async (movie) => {
+    const movieId = movie.movie_id || movie.id
+    if (!movieId) return
+    const isCurrentlyLiked = interactions.liked_movie_ids.includes(movieId)
+
+    setActionLoading(true)
+    try {
+      if (isCurrentlyLiked) {
+        await movieApi.removeInteraction(movieId)
+      } else {
+        await movieApi.recordInteraction(movieId, 'liked')
+      }
+      await fetchInteractions()
+      await refetch()
+    } catch (err) {
+      console.error('Like toggle failed:', err)
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleMarkSeen = async (movie) => {
+    const movieId = movie.movie_id || movie.id
+    if (!movieId) return
+    const isCurrentlySeen = interactions.seen_movie_ids.includes(movieId)
+
+    setActionLoading(true)
+    try {
+      if (isCurrentlySeen) {
+        await movieApi.removeInteraction(movieId)
+      } else {
+        await movieApi.recordInteraction(movieId, 'seen')
+      }
+      await fetchInteractions()
+      await refetch()
+    } catch (err) {
+      console.error('Seen toggle failed:', err)
+    } finally {
+      setActionLoading(false)
+    }
+  }
 
   const handleGenreToggle = (genre) => {
     setSelectedGenres((prev) => 
@@ -56,10 +120,10 @@ export function RecommendationsPage() {
           <Film className="h-12 w-12" />
         </div>
         <h1 className="text-3xl font-extrabold text-primary tracking-tight mb-2">
-          Personalized NeuMF Recommendations
+          Personalized Recommendations
         </h1>
         <p className="text-secondary text-sm leading-relaxed mb-6">
-          Sign in to bind your profile to a MovieLens user embedding. The NeuMF engine will rank top candidates matching your implicit viewing tastes.
+          Sign in to calibrate your movie preferences and get real-time recommendations tailored to you.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3">
           <Link
@@ -79,21 +143,67 @@ export function RecommendationsPage() {
     )
   }
 
+  const hasDynamicTaste = interactions.liked_movie_ids.length > 0
+
   return (
     <div className="space-y-8 animate-fade-in">
+      {/* Dynamic Taste Calibration Callout if not yet onboarded */}
+      {!user?.onboarding_completed && !hasDynamicTaste && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-accent/10 border border-accent/25 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-sm shadow-lg shadow-accent/5">
+          <div className="flex items-center gap-3.5">
+            <div className="p-2.5 rounded-xl bg-accent/20 text-accent shrink-0">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="font-bold text-primary text-base">Calibrate your personal movie taste</p>
+              <p className="text-secondary text-xs mt-0.5">
+                Select 3 or more favorite films to customize your personal movie recommendations.
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/onboarding"
+            className="px-4 py-2.5 rounded-xl bg-accent text-white font-semibold text-xs hover:bg-accent-hover shadow-md shadow-accent/20 transition-all text-center shrink-0 flex items-center justify-center gap-1.5"
+          >
+            <span>Start Calibration</span>
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+      )}
+
       {/* Header with Linked Profile Info */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-extrabold text-primary tracking-tight">For You</h1>
           <p className="text-secondary text-sm mt-1">
-            Top-N personalized movie recommendations generated via Neural Collaborative Filtering
+            {hasDynamicTaste 
+              ? `Personalized from your ${interactions.liked_movie_ids.length} liked movies` 
+              : 'Top movie recommendations tailored to your taste profile'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="px-3 py-1.5 rounded-xl bg-accent/10 border border-accent/25 text-xs font-semibold text-accent flex items-center gap-1.5">
-            <Sparkles className="h-3.5 w-3.5" />
-            MovieLens #{user?.movie_lens_user_id}
-          </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {hasDynamicTaste ? (
+            <>
+              <div className="px-3 py-1.5 rounded-xl bg-red-500/15 border border-red-500/30 text-xs font-semibold text-red-400 flex items-center gap-1.5">
+                <Heart className="h-3.5 w-3.5 fill-current text-red-500" />
+                Dynamic Taste ({interactions.liked_movie_ids.length} liked)
+              </div>
+              <Link
+                to="/onboarding"
+                className="px-3 py-1.5 rounded-xl bg-surface hover:bg-card border border-border text-xs font-semibold text-secondary hover:text-primary transition-colors flex items-center gap-1"
+                title="Add or change liked movies"
+              >
+                <span>Edit Taste</span>
+                <ArrowRight className="h-3 w-3" />
+              </Link>
+            </>
+          ) : (
+            <div className="px-3 py-1.5 rounded-xl bg-accent/10 border border-accent/25 text-xs font-semibold text-accent flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5" />
+              Personalized Picks
+            </div>
+          )}
+
           <button
             type="button"
             onClick={refetch}
@@ -127,12 +237,16 @@ export function RecommendationsPage() {
         </div>
       )}
 
-      {/* Movie Grid */}
+      {/* Movie Grid with Interactive Like / Seen actions */}
       <MovieGrid
         movies={filteredRecommendations}
         loading={loading}
         showRank
         onMovieClick={setSelectedMovie}
+        onLike={handleLike}
+        onMarkSeen={handleMarkSeen}
+        likedMovieIds={interactions.liked_movie_ids}
+        seenMovieIds={interactions.seen_movie_ids}
         emptyMessage="No recommendations match your current genre filters"
       />
 
@@ -166,6 +280,10 @@ export function RecommendationsPage() {
         movie={selectedMovie}
         isOpen={!!selectedMovie}
         onClose={() => setSelectedMovie(null)}
+        onLike={handleLike}
+        onMarkSeen={handleMarkSeen}
+        isLiked={selectedMovie ? interactions.liked_movie_ids.includes(selectedMovie.movie_id || selectedMovie.id) : false}
+        isSeen={selectedMovie ? interactions.seen_movie_ids.includes(selectedMovie.movie_id || selectedMovie.id) : false}
       />
     </div>
   )

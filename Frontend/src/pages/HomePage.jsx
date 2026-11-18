@@ -1,19 +1,16 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Film, Play, Star, TrendingUp, Brain, ArrowRight, Sparkles } from 'lucide-react'
+import { Film, Play, Star, TrendingUp, Brain, ArrowRight, Sparkles, Heart } from 'lucide-react'
 import { cn } from '../utils/cn'
 import { MovieCarousel } from '../components/movie/MovieCarousel'
 import { MovieDetailsModal } from '../components/movie/MovieDetailsModal'
-import { useRecommendations, useMovieSearch, useMetrics, useHealthCheck } from '../hooks/useMovies'
-import { MetricCard, DatasetStatsChart, ModelComparisonChart, EvaluationConfigDisplay } from '../components/analytics/AnalyticsComponents'
+import { useRecommendations, useMovieSearch } from '../hooks/useMovies'
 import { useAuth } from '../context/AuthContext'
 
 export function HomePage() {
   const { isAuthenticated, user } = useAuth()
   const { recommendations: userRecs, loading: recsLoading } = useRecommendations(12)
   const { results: popularMovies, loading: popularLoading } = useMovieSearch('the', 18)
-  const { metrics } = useMetrics()
-  const { health, loading: healthLoading } = useHealthCheck()
   const [selectedMovie, setSelectedMovie] = useState(null)
 
   const featuredMovie = popularMovies[0]
@@ -41,7 +38,7 @@ export function HomePage() {
           <div className="flex flex-wrap items-center gap-2">
             <span className="px-3 py-1 bg-accent text-white text-xs font-bold rounded-full uppercase tracking-wider shadow-md shadow-accent/30 flex items-center gap-1.5">
               <Sparkles className="h-3 w-3" />
-              NeuMF Spotlight
+              Featured Pick
             </span>
             {featuredMovie?.genres?.slice(0, 3).map((g) => (
               <span key={g} className="px-2.5 py-1 bg-surface/85 backdrop-blur-md text-xs font-medium rounded-full border border-border/80 text-secondary">
@@ -51,11 +48,11 @@ export function HomePage() {
           </div>
 
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-primary leading-[1.15] tracking-tight">
-            {featuredMovie?.title || 'Personalized Cinema via Neural Collaborative Filtering'}
+            {featuredMovie?.title || 'Personalized Cinema Recommendations'}
           </h1>
 
           <p className="text-sm sm:text-base text-secondary/90 leading-relaxed max-w-2xl line-clamp-3">
-            {featuredMovie?.overview || 'Experience high-precision movie recommendations trained on 25 million MovieLens interactions using fused Generalized Matrix Factorization and Deep Multi-Layer Perceptrons.'}
+            {featuredMovie?.overview || 'Discover films matching your exact taste with real-time recommendations trained on millions of movie lovers.'}
           </p>
 
           <div className="flex flex-wrap items-center gap-3 pt-2">
@@ -96,39 +93,11 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Quick Metrics Bar */}
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          title="Engine Status"
-          value={health?.model_loaded ? 'NeuMF Online' : healthLoading ? 'Checking...' : 'Standby'}
-          description={health?.model_loaded ? `Version ${health?.model_version || '1.0.0'} ready` : 'FastAPI service active'}
-          icon={<Brain className="h-4 w-4" />}
-        />
-        <MetricCard
-          title="Dataset Size"
-          value="MovieLens 25M"
-          description={`${metrics?.dataset_stats?.users?.toLocaleString() || '162,148'} users · ${metrics?.dataset_stats?.movies?.toLocaleString() || '47,396'} movies`}
-          icon={<Film className="h-4 w-4" />}
-        />
-        <MetricCard
-          title="Hit Rate @10"
-          value={metrics?.model_comparison?.neumf?.hr_at_10?.toFixed(4) || metrics?.model_comparison?.neumf?.HR_at_10?.toFixed(4) || '0.7842'}
-          description="Test item in Top-10 ranking"
-          icon={<Star className="h-4 w-4" />}
-        />
-        <MetricCard
-          title="NDCG @10"
-          value={metrics?.model_comparison?.neumf?.ndcg_at_10?.toFixed(4) || metrics?.model_comparison?.neumf?.NDCG_at_10?.toFixed(4) || '0.5126'}
-          description="Normalized Discounted Gain"
-          icon={<TrendingUp className="h-4 w-4" />}
-        />
-      </section>
-
       {/* Recommended For You Section */}
       {isAuthenticated ? (
         <MovieCarousel
           title="Recommended For You"
-          subtitle={`Personalized NeuMF predictions for user #${user?.movie_lens_user_id || 'profile'}`}
+          subtitle="Hand-picked recommendations based on your tastes"
           movies={userRecs}
           loading={recsLoading}
           onMovieClick={setSelectedMovie}
@@ -139,13 +108,13 @@ export function HomePage() {
           <div className="space-y-2 text-center md:text-left">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent/15 text-accent text-xs font-semibold">
               <Sparkles className="h-3.5 w-3.5" />
-              Tailored Taste Profile
+              Tailored For You
             </div>
             <h2 className="text-xl sm:text-2xl font-bold text-primary">
-              Unlock Personalized NeuMF Recommendations
+              Unlock Your Personalized Recommendations
             </h2>
             <p className="text-secondary text-sm max-w-xl">
-              Sign in or create a profile to bind your account to a MovieLens user embedding and receive real-time top-N collaborative filtering recommendations.
+              Sign in or create a free profile to discover movies tailored to your taste with real-time recommendations.
             </p>
           </div>
           <div className="flex items-center gap-3 shrink-0">
@@ -173,15 +142,6 @@ export function HomePage() {
         loading={popularLoading}
         onMovieClick={setSelectedMovie}
       />
-
-      {/* Performance Analytics & Dataset Breakdown */}
-      <div className="grid gap-6 lg:grid-cols-2 pt-2">
-        <ModelComparisonChart metrics={metrics?.model_comparison || {}} />
-        <div className="space-y-6">
-          <EvaluationConfigDisplay config={metrics?.evaluation_config || metrics} />
-          <DatasetStatsChart stats={metrics?.dataset_stats || {}} />
-        </div>
-      </div>
 
       {/* Movie Details Modal */}
       <MovieDetailsModal

@@ -80,7 +80,6 @@ def test_api_get_movie_by_id_not_found(client):
 def test_api_recommend_unauthenticated_rejected(client):
     """Verify /api/recommend rejects requests missing an Authorization header."""
     response = client.get("/api/recommend?top_n=10")
-    # Starlette HTTPBearer returns 403 or 401 when no credentials are provided
     assert response.status_code in (401, 403)
 
 
@@ -88,4 +87,3 @@ def test_api_predict_unauthenticated_rejected(client):
     """Verify /api/predict rejects requests missing an Authorization header."""
     response = client.post("/api/predict", json={"movie_id": 1})
     assert response.status_code in (401, 403)
-

@@ -6,6 +6,7 @@ import {
   Brain,
   BarChart3,
   Settings,
+  ShieldCheck,
   ChevronLeft,
   ChevronRight,
   Film,
@@ -16,12 +17,11 @@ import {
 import { cn } from '../../utils/cn'
 import { useAuth } from '../../context/AuthContext'
 
-const navigation = [
+const baseNavigation = [
   { name: 'Home', href: '/', icon: Home },
   { name: 'Discover', href: '/discover', icon: Compass },
   { name: 'For You', href: '/recommendations', icon: Heart },
   { name: 'Predictor', href: '/predictor', icon: Brain },
-  { name: 'Model Insights', href: '/insights', icon: BarChart3 },
   { name: 'Settings', href: '/settings', icon: Settings },
 ]
 
@@ -55,7 +55,7 @@ export function Sidebar({
             </div>
             <div className="flex flex-col">
               <span className="font-extrabold text-lg text-primary tracking-tight">CineMatch</span>
-              <span className="text-[10px] text-accent font-semibold tracking-wider uppercase -mt-1">NCF Engine</span>
+              <span className="text-[10px] text-accent font-semibold tracking-wider uppercase -mt-1">Movie Picks</span>
             </div>
           </Link>
         ) : (
@@ -94,7 +94,10 @@ export function Sidebar({
 
       {/* Navigation Links */}
       <nav className="flex-1 overflow-y-auto py-5 px-3 space-y-1.5" aria-label="Main navigation">
-        {navigation.map((item) => {
+        {[
+          ...baseNavigation,
+          ...(user?.role === 'admin' ? [{ name: 'Admin Console', href: '/admin', icon: ShieldCheck }] : []),
+        ].map((item) => {
           const isActive = item.href === '/' 
             ? location.pathname === '/' 
             : location.pathname.startsWith(item.href)
@@ -117,8 +120,14 @@ export function Sidebar({
               {(!collapsed || isOpen) && (
                 <span className="truncate">{item.name}</span>
               )}
-              {isActive && (!collapsed || isOpen) && (
-                <span className="ml-auto w-1.5 h-1.5 rounded-full bg-accent" />
+              {item.href === '/admin' && user?.role === 'admin' && (!collapsed || isOpen) ? (
+                <span className="ml-auto px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                  Admin
+                </span>
+              ) : (
+                isActive && (!collapsed || isOpen) && (
+                  <span className="ml-auto w-1.5 h-1.5 rounded-full bg-accent" />
+                )
               )}
             </NavLink>
           )
@@ -135,8 +144,17 @@ export function Sidebar({
                   <User className="h-4 w-4 text-accent" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold text-primary truncate">{user?.email}</p>
-                  <p className="text-[10px] text-secondary truncate">MovieLens #{user?.movie_lens_user_id}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs font-semibold text-primary truncate">{user?.email}</p>
+                    {user?.role === 'admin' && (
+                      <span className="px-1 py-0.2 rounded text-[8px] font-extrabold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                        ADMIN
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-secondary truncate">
+                    {user?.onboarding_completed ? 'Taste Profile Active' : 'Personalized Profile'}
+                  </p>
                 </div>
               </div>
               <button

@@ -47,6 +47,41 @@ class NeuMF(nn.Module):
         mlp = self.mlp(pair)
         return self.output(torch.cat([gmf, mlp], dim=1)).squeeze(1)
 
+    def forward_with_surrogate(
+        self,
+        surrogate_gmf_user: torch.Tensor,
+        surrogate_mlp_user: torch.Tensor,
+        movie_idx: torch.Tensor,
+    ) -> torch.Tensor:
+        device = next(self.parameters()).device
+        if movie_idx.device != device:
+            movie_idx = movie_idx.to(device)
+        if surrogate_gmf_user.device != device:
+            surrogate_gmf_user = surrogate_gmf_user.to(device)
+        if surrogate_mlp_user.device != device:
+            surrogate_mlp_user = surrogate_mlp_user.to(device)
+
+        movie_gmf = self.gmf_movie(movie_idx)
+        movie_mlp = self.mlp_movie(movie_idx)
+
+        if surrogate_gmf_user.dim() == 1:
+            surrogate_gmf_user = surrogate_gmf_user.unsqueeze(0)
+        if surrogate_mlp_user.dim() == 1:
+            surrogate_mlp_user = surrogate_mlp_user.unsqueeze(0)
+
+        num_items = movie_idx.shape[0]
+        if surrogate_gmf_user.shape[0] == 1 and num_items > 1:
+            gmf_user = surrogate_gmf_user.expand(num_items, -1)
+            mlp_user = surrogate_mlp_user.expand(num_items, -1)
+        else:
+            gmf_user = surrogate_gmf_user
+            mlp_user = surrogate_mlp_user
+
+        gmf = gmf_user * movie_gmf
+        pair = torch.cat([mlp_user, movie_mlp], dim=1)
+        mlp = self.mlp(pair)
+        return self.output(torch.cat([gmf, mlp], dim=1)).squeeze(1)
+
 
 class ModelService:
     _instance = None
@@ -68,8 +103,14 @@ class ModelService:
     _train_seen: Dict[int, set] = {}
 
     @classmethod
-    def load_artifacts(cls):
+    def load_artifacts(cls, force: bool = False):
+        if cls._model_loaded and not force:
+            return
         artifact_dir = Path(settings.model_artifacts_dir)
+        if not (artifact_dir / "model_config.json").exists():
+            pkg_artifacts = Path(__file__).resolve().parent.parent.parent / "model_artifacts"
+            if (pkg_artifacts / "model_config.json").exists():
+                artifact_dir = pkg_artifacts
         
         with open(artifact_dir / "model_config.json") as f:
             cls._config = json.load(f)
@@ -97,7 +138,7 @@ class ModelService:
         with open(artifact_dir / "metrics.json") as f:
             cls._metrics = json.load(f)
 
-        cls._load_training_history()
+        cls._load_training_history(artifact_dir)
 
         model_path = artifact_dir / "neumf_best.pth"
         if model_path.exists():
@@ -106,8 +147,7 @@ class ModelService:
             print("Model checkpoint not found. Model will be loaded when training completes.")
 
     @classmethod
-    def _load_training_history(cls):
-        artifact_dir = Path(settings.model_artifacts_dir)
+    def _load_training_history(cls, artifact_dir: Path):
         history_path = artifact_dir / "training_history.json"
         if history_path.exists():
             with open(history_path) as f:
@@ -263,5 +303,121 @@ class ModelService:
             "movie_id": movie_id,
             "prediction_type": "preference_score",
             "score": float(score),
+            "model_version": cls._model_version,
+        }
+
+    @classmethod
+    def _compute_surrogate_user_embeddings(
+        cls,
+        liked_movie_ids: List[int],
+    ) -> Tuple[torch.Tensor, torch.Tensor, List[int]]:
+        if not cls._model_loaded:
+            raise RuntimeError("Model not loaded. Please train the model first.")
+
+        valid_liked_raw = [m for m in liked_movie_ids if m in cls._movie2idx]
+        if not valid_liked_raw:
+            raise ValueError("None of the provided movie IDs exist in the trained vocabulary")
+
+        liked_indices = [cls._movie2idx[m] for m in valid_liked_raw]
+        liked_tensor = torch.tensor(liked_indices, dtype=torch.long, device=cls._device)
+
+        model = cls._model
+        model.eval()
+
+        with torch.inference_mode():
+            surrogate_gmf = model.gmf_movie(liked_tensor).mean(dim=0, keepdim=True)
+            surrogate_mlp = model.mlp_movie(liked_tensor).mean(dim=0, keepdim=True)
+
+        return surrogate_gmf, surrogate_mlp, valid_liked_raw
+
+    @classmethod
+    def recommend_from_liked_movies(
+        cls,
+        liked_movie_ids: List[int],
+        excluded_movie_ids: Optional[set] = None,
+        top_n: int = 10,
+        score_batch_size: int = 8192,
+    ) -> List[Dict]:
+        if not 1 <= top_n <= 100:
+            raise ValueError("top_n must be between 1 and 100")
+
+        surrogate_gmf, surrogate_mlp, valid_liked_raw = cls._compute_surrogate_user_embeddings(liked_movie_ids)
+
+        excluded_raw = set(valid_liked_raw)
+        if excluded_movie_ids:
+            excluded_raw.update(excluded_movie_ids)
+
+        excluded_indices = {cls._movie2idx[m] for m in excluded_raw if m in cls._movie2idx}
+        items = np.array([i for i in range(cls._num_movies) if i not in excluded_indices], dtype=np.int64)
+
+        if len(items) == 0:
+            return []
+
+        model = cls._model
+        model.eval()
+        parts = []
+
+        with torch.inference_mode():
+            for start in range(0, len(items), score_batch_size):
+                batch = items[start:start + score_batch_size]
+                item_tensor = torch.as_tensor(batch, dtype=torch.long, device=cls._device)
+                logits = model.forward_with_surrogate(surrogate_gmf, surrogate_mlp, item_tensor)
+                scores = torch.sigmoid(logits).cpu().numpy()
+                parts.append(scores)
+
+        scores = np.concatenate(parts)
+        top_k = min(top_n, len(scores))
+        positions = np.argpartition(-scores, top_k - 1)[:top_k]
+        positions = positions[np.argsort(-scores[positions])]
+
+        raw_movies = [cls._idx2movie[int(items[pos])] for pos in positions]
+
+        result = cls._movie_metadata[cls._movie_metadata["movieId"].isin(raw_movies)][
+            ["movieId", "title", "genres"]
+        ].copy()
+
+        score_by_movie = {int(cls._idx2movie[int(items[pos])]): float(scores[pos]) for pos in positions}
+        result["preference_score"] = result["movieId"].map(score_by_movie)
+        result = result.sort_values("preference_score", ascending=False).reset_index(drop=True)
+        result.insert(0, "rank", np.arange(1, len(result) + 1))
+
+        recommendations = []
+        for _, row in result.iterrows():
+            genres = row["genres"].split("|") if isinstance(row["genres"], str) else []
+            recommendations.append({
+                "rank": int(row["rank"]),
+                "movie_id": int(row["movieId"]),
+                "title": row["title"],
+                "genres": genres,
+                "score": float(row["preference_score"]),
+            })
+
+        return recommendations
+
+    @classmethod
+    def predict_from_liked_movies(
+        cls,
+        liked_movie_ids: List[int],
+        target_movie_id: int,
+    ) -> Dict:
+        if target_movie_id not in cls._movie2idx:
+            raise KeyError(f"Target movie is outside the trained vocabulary: {target_movie_id}")
+
+        surrogate_gmf, surrogate_mlp, valid_liked_raw = cls._compute_surrogate_user_embeddings(liked_movie_ids)
+        target_idx = cls._movie2idx[target_movie_id]
+
+        model = cls._model
+        model.eval()
+
+        with torch.inference_mode():
+            target_tensor = torch.tensor([target_idx], dtype=torch.long, device=cls._device)
+            logits = model.forward_with_surrogate(surrogate_gmf, surrogate_mlp, target_tensor)
+            score = torch.sigmoid(logits).item()
+
+        return {
+            "target_movie_id": target_movie_id,
+            "prediction_type": "surrogate_preference_score",
+            "score": float(score),
+            "liked_movies_count": len(valid_liked_raw),
             "model_version": cls._model_version,
         }

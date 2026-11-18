@@ -8,19 +8,23 @@ from app.services.db import Base, get_db, User
 from app.services.model_service import ModelService
 from app.services.movie_service import MovieService
 
+from sqlalchemy.pool import StaticPool
+
 # Use isolated async SQLite in-memory database for testing
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
-test_engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+test_engine = create_async_engine(
+    TEST_DATABASE_URL,
+    echo=False,
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
 TestSessionLocal = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
 
 
 async def override_get_db():
     async with TestSessionLocal() as session:
         yield session
-
-
-app.dependency_overrides[get_db] = override_get_db
 
 
 @pytest_asyncio.fixture(scope="module", autouse=True)
@@ -32,7 +36,11 @@ async def setup_test_db():
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
+    app.dependency_overrides[get_db] = override_get_db
+
     yield
+
+    app.dependency_overrides.pop(get_db, None)
 
     # Clean up tables
     async with test_engine.begin() as conn:

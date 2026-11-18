@@ -34,6 +34,71 @@ export const movieApi = {
     const response = await api.get('/api/health')
     return response.data
   },
+
+  async completeOnboarding(likedMovieIds) {
+    const response = await api.post('/api/user/onboarding', {
+      liked_movie_ids: likedMovieIds,
+    })
+    return response.data
+  },
+
+  async recordInteraction(movieId, interactionType = 'liked') {
+    const response = await api.post('/api/user/interactions', {
+      movie_id: movieId,
+      interaction_type: interactionType,
+    })
+    return response.data
+  },
+
+  async removeInteraction(movieId) {
+    const response = await api.delete(`/api/user/interactions/${movieId}`)
+    return response.data
+  },
+
+  async getUserInteractions() {
+    const response = await api.get('/api/user/interactions')
+    return response.data
+  },
+
+  async surrogateRecommend(likedMovieIds, excludedMovieIds = [], topN = 10) {
+    const response = await api.post('/api/surrogate/recommend', {
+      liked_movie_ids: likedMovieIds,
+      excluded_movie_ids: excludedMovieIds,
+      top_n: topN,
+    })
+    return response.data
+  },
+
+  async resetUserInteractions() {
+    const response = await api.delete('/api/user/interactions/reset')
+    return response.data
+  },
+
+  async setAdminBenchmarkId(movieLensUserId) {
+    const response = await api.post('/api/admin/set-benchmark-id', {
+      movie_lens_user_id: movieLensUserId,
+    })
+    return response.data
+  },
+
+  async toggleAdminRole(password = null) {
+    const response = await api.post('/api/admin/toggle-admin-role', {
+      password,
+    })
+    return response.data
+  },
+
+  async verifyAdminPassword(password) {
+    const response = await api.post('/api/admin/verify-password', {
+      password,
+    })
+    return response.data
+  },
+
+  async exitAdminMode() {
+    const response = await api.post('/api/admin/exit-admin-mode')
+    return response.data
+  },
 }
 
 export const authApi = {

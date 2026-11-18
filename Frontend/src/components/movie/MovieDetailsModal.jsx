@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Calendar, Film, Sparkles, Star, X } from 'lucide-react'
+import { Calendar, Film, Sparkles, Star, X, Heart, Eye } from 'lucide-react'
+import { cn } from '../../utils/cn'
 import { Modal, LoadingSkeleton, Button } from '../ui/SharedComponents'
 import { movieApi } from '../../services/movieApi'
 import { usePrediction } from '../../hooks/usePrediction'
@@ -10,6 +11,10 @@ export function MovieDetailsModal({
   isOpen, 
   onClose, 
   onPredict,
+  onLike,
+  onMarkSeen,
+  isLiked = false,
+  isSeen = false,
   recommendationScore 
 }) {
   const [details, setDetails] = useState(null)
@@ -172,16 +177,50 @@ export function MovieDetailsModal({
             {/* Modal Actions */}
             <div className="pt-4 border-t border-border flex flex-wrap gap-2.5">
               {isAuthenticated ? (
-                <Button
-                  variant="primary"
-                  size="md"
-                  className="flex-1"
-                  onClick={handlePredictClick}
-                  loading={predicting}
-                >
-                  <Sparkles className="h-4 w-4 mr-1.5" />
-                  Predict Preference
-                </Button>
+                <>
+                  <Button
+                    variant="primary"
+                    size="md"
+                    className="flex-1"
+                    onClick={handlePredictClick}
+                    loading={predicting}
+                  >
+                    <Sparkles className="h-4 w-4 mr-1.5" />
+                    Predict Preference
+                  </Button>
+
+                  {onLike && (
+                    <button
+                      type="button"
+                      onClick={() => onLike(movie)}
+                      className={cn(
+                        'px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border',
+                        isLiked
+                          ? 'bg-red-500/20 text-red-400 border-red-500/40 shadow-md shadow-red-500/15'
+                          : 'bg-surface text-secondary hover:text-red-400 border-border hover:bg-card'
+                      )}
+                    >
+                      <Heart className={cn('h-4 w-4', isLiked && 'fill-current text-red-500')} />
+                      <span>{isLiked ? 'Liked' : 'Like'}</span>
+                    </button>
+                  )}
+
+                  {onMarkSeen && (
+                    <button
+                      type="button"
+                      onClick={() => onMarkSeen(movie)}
+                      className={cn(
+                        'px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border',
+                        isSeen
+                          ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40 shadow-md shadow-cyan-500/15'
+                          : 'bg-surface text-secondary hover:text-cyan-400 border-border hover:bg-card'
+                      )}
+                    >
+                      <Eye className={cn('h-4 w-4', isSeen && 'stroke-[2.5] text-cyan-400')} />
+                      <span>{isSeen ? 'Seen' : 'Mark Seen'}</span>
+                    </button>
+                  )}
+                </>
               ) : (
                 <a
                   href="/login"
